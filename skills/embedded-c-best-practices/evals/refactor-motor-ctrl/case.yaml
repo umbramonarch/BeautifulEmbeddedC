@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: refactor-motor-ctrl
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  A refactored, vendor-free, host-testable motor controller module (or multi-layer split)
+  with zero vendor SDK headers in public .h files, a const configuration table in .rodata
+  paired with _Static_assert, static state storage instead of malloc, a bounded hardware
+  polling loop with an explicit timeout counter, fixed-width integer types and physical unit
+  wrappers/suffixes (_ma, _hz, _permille) instead of float/int, mandatory braces on all
+  control statements, no goto statements, atomic/volatile ISR shared-state handling, checked
+  status enum returns, and a CHANGES.md summary of all signature and safety fixes.

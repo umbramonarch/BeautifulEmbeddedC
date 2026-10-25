@@ -1,0 +1,22 @@
+{
+  "name": "beautiful-embedded-c",
+  "version": "1.0.0",
+  "description": "Write, review, and enforce deterministic, safety-critical Embedded C (C11): a writing skill and a review skill covering all firmware layers (app, bsp, config, drv, libs, ISRs, and host tests), distilled from Jacob Beningo's Reusable Firmware Development, James Grenning's Test-Driven Development for Embedded C, NASA JPL's Power of 10, BARR-C:2018, and the MISRA C Essential Type Model, plus drop-in lints and multi-layer scaffolding.",
+  "license": "MIT",
+  "author": {
+    "name": "umbramonarch",
+    "url": "https://github.com/umbramonarch"
+  },
+  "homepage": "https://github.com/umbramonarch/BeautifulEmbeddedC",
+  "repository": "https://github.com/umbramonarch/BeautifulEmbeddedC",
+  "keywords": [
+    "barr-c",
+    "best-practices",
+    "clang-tidy",
+    "code-review",
+    "embedded-c",
+    "firmware",
+    "misra",
+    "skill"
+  ]
+}
