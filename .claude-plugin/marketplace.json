@@ -1,0 +1,15 @@
+{
+  "name": "beautiful-embedded-c",
+  "owner": {
+    "name": "umbramonarch",
+    "url": "https://github.com/umbramonarch"
+  },
+  "description": "Skills for writing and reviewing deterministic, safety-critical Embedded C with Claude.",
+  "plugins": [
+    {
+      "name": "beautiful-embedded-c",
+      "source": "./",
+      "description": "Skills that teach Claude to write and review idiomatic Embedded C across all firmware layers (app, bsp, config, drv, libs), distilled from five authoritative guides, plus drop-in clang-format/clang-tidy/architecture lints and scaffolding."
+    }
+  ]
+}

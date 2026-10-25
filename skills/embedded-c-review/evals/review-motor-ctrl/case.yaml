@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: review-motor-ctrl
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  A prioritized review report in REVIEW.md organized into Must fix, Should fix, Consider, and
+  What's already good. It flags the unbounded ADC polling loop, the vendor SDK header and
+  register pointer leaked into motor_ctrl.h, the malloc call in motor_Init, the non-const
+  g_motorConfig table in SRAM, the non-atomic ISR shared variable and blocking ADC call in
+  TIM1_UP_IRQHandler, the goto statement, the float/int types without physical units, and the
+  unbraced if statements. Every finding cites file:line, a named rule and authority, and a
+  short C fix snippet, while leaving motor_ctrl.h and motor_ctrl.c unmodified.

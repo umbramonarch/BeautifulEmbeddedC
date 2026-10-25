@@ -1,0 +1,31 @@
+# BeautifulEmbeddedC drop-in clangd configuration
+#
+# Copy to your firmware repository root as `.clangd`.
+# Strips GCC-specific flags (such as -Wstack-usage) from compile_commands.json so LLVM
+# clangd parses cross-compiled targets cleanly, and enforces strict include hygiene.
+
+CompileFlags:
+  CompilationDatabase: .
+  Add:
+    - -std=c11
+    - -Wall
+    - -Wextra
+    - -Wpedantic
+    - -Wconversion
+    - -Wsign-conversion
+  Remove:
+    - -Wstack-usage=*
+    - -fstack-usage
+
+Diagnostics:
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - cert-*
+      - misc-unused-*
+      - readability-braces-around-statements
+      - readability-function-size
+    Remove:
+      - bugprone-easily-swappable-parameters

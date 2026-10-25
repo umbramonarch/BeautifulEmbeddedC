@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: ring-buffer-lib
+expected_outcome: |
+  A hardware-independent C11 byte ring buffer library in libs/ring_buf/ringBuf.h and
+  libs/ring_buf/ringBuf.c, plus a host-compilable unit test in
+  libs/ring_buf/test/test_ring_buf.c. The implementation uses caller-supplied or fixed static
+  storage (zero malloc/free), fixed-width <stdint.h>/<stddef.h>/<stdbool.h> types, an explicit
+  status enum annotated with __attribute__((warn_unused_result)), mandatory braces on all
+  control blocks, standardized Doxygen @file/@brief headers and section dividers, and unit
+  tests covering NULL arguments, empty/full boundaries, and wrap-around.

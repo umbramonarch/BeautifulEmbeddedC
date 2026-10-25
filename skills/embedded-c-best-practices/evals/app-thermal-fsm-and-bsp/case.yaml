@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: app-thermal-fsm-and-bsp
+expected_outcome: |
+  A multi-layer Embedded C thermal derating and fan control vertical slice spanning
+  src/config/, drvs/pwm/, src/bsp/, src/app/, and host unit tests. The public driver header
+  drvPwm.h is vendor-free, the board configuration table kBspPwmConfigTable is qualified const
+  in .rodata with a _Static_assert matching the channel enum count, physical quantities use
+  single-field unit wrapper structs (Millivolts_t, DutyPermille_t, FreqHz_t), BSP functions use
+  board-meaningful names, and host unit tests verify appThermal using a link-time fake
+  (fake_drvPwm.c) with zero #ifdef TEST in production files.
