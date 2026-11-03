@@ -25,22 +25,16 @@ which to follow and why.
 
 ## 1. Mindset
 
-- **Build locked doors, not signs on the wall.** Prose comments ("caller must pass millivolts
-  <= 3300", "do not include vendor headers here", "remember to check return status") are
-  ignored under deadline and context pressure. Encode every invariant in a C type, a
-  `_Static_assert`, a compiler flag, or an architecture script that fails the build at the
-  exact `file:line`.
-- **Keep hardware out of 80% of your codebase.** Application state machines (`src/app/`),
-  product configurations (`src/config/`), board abstractions (`src/bsp/`), and utility
-  libraries (`libs/`) should have zero knowledge of MCU register addresses or vendor SDK
-  types. Only `.c` files inside `drvs/` touch silicon.
-- **Design every C file to compile on two targets from day one.** Every module above the raw
-  peripheral `.c` file must compile cleanly on host `gcc` (x86/ARM64) so its state machines,
-  scaling math, and error paths can be verified in milliseconds without flashing hardware.
-- **Prefer static determinism over runtime flexibility.** In safety-critical firmware, running
-  out of heap, blocking on an unclocked peripheral flag, or overflowing the stack in a
-  recursive helper is a catastrophic field failure. Allocate statically at compile time, bound
-  every loop, and keep control flow flat.
+- **Build locked doors, not signs on the wall.** Prose comments ("pass <= 3300 mV", "do not
+  include vendor headers") are ignored under deadline pressure. Encode every invariant in a C
+  type, `_Static_assert`, compiler flag, or `check_arch.py` rule that fails the build.
+- **Keep hardware and RTOS headers out of 80% of your codebase.** `src/app/`, `src/config/`,
+  `src/bsp/`, and `libs/` have zero MCU register addresses or vendor SDK types. Only `drvs/*.c`
+  touches silicon, and `src/app/*.h` stays free of RTOS kernel headers (`[RTOS-SEAM-01]`).
+- **Design every C file to compile on two targets from day one.** Every module above `drvs/*.c`
+  compiles cleanly on host `gcc` so state machines and error paths run in milliseconds.
+- **Prefer static determinism over runtime flexibility.** Allocate all state and RTOS objects
+  statically at compile time, bound every loop and blocking wait, and keep control flow flat.
 
 ## 2. Before you hand back code
 
@@ -49,66 +43,49 @@ When you have shell access and a project directory, run these checks before fini
 ```bash
 # 1. Enforce mandatory braces and deterministic formatting
 clang-format --dry-run -Werror src/**/*.[ch] drvs/**/*.[ch] libs/**/*.[ch]
-
 # 2. Enforce architecture boundaries, .rodata const tables, and NASA JPL safety bans
 python3 lints/check_arch.py .
-
-# 3. Compile and run fast host unit tests with link-time fakes
-make test
-
-# 4. Run static analysis and cross-target compilation when toolchain is available
-make tidy && make all
+# 3. Compile and run fast host unit tests with link-time fakes, then static analysis
+make test && make tidy && make all
 ```
 
 - **Never silence a warning by weakening compiler flags.** Fix the underlying sign conversion,
-  missing prototype, or unused parameter. For intentionally unused callback or interface
+  missing prototype, or unused parameter. For intentionally unused callback or RTOS task
   parameters, cast explicitly with `(void)param;` at the top of the function body.
-- **Keep warnings enforced in the build, not via `#pragma` scatter.** The `BeautifulEmbeddedC`
-  repo ships a ready-made set of configs in `lints/.clang-format`, `lints/.clang-tidy`,
-  `lints/.clangd`, `lints/Makefile`, `lints/check_arch.py`, and `lints/scaffold.py`
-  (https://github.com/umbramonarch/BeautifulEmbeddedC); suggest or copy them when a project
-  has none.
+- **Keep warnings enforced in the build, not via `#pragma` scatter.** Suggest or copy the
+  drop-in configs in `lints/` (`.clang-format`, `.clang-tidy`, `.clangd`, `Makefile`,
+  `check_arch.py`, `scaffold.py` from https://github.com/umbramonarch/BeautifulEmbeddedC).
 
 ## 3. Architecture across all C files (`app`, `bsp`, `config`, `drv`, `libs`)
 
 Firmware is organized into four horizontal layers plus one vertical pure-library pillar so
-that every file type has a single responsibility and strict `#include` boundaries
+every file type has a single responsibility and strict `#include` boundaries
 (`[BENINGO-ARCH-01]`):
 
 | Layer / Directory | Responsibility | Allowed `#include`s | Forbidden `#include`s |
 | --- | --- | --- | --- |
-| `src/app/` | Product state machines, control loops, high-level policy | Own `.h`, `src/config/*.h`, `src/bsp/bsp*.h`, `libs/*.h`, `<stdint.h>`, `<stdbool.h>`, `<stddef.h>` | `src/bsp/config/*`, `drvs/*`, vendor SDK headers, `<stdio.h>`, `<stdlib.h>` |
+| `src/app/` | Product state machines, control loops, high-level policy | Own `.h`, `src/config/*.h`, `src/bsp/bsp*.h`, `libs/*.h`, `<stdint.h>`, `<stdbool.h>`, `<stddef.h>` | `src/bsp/config/*`, `drvs/*`, vendor SDK headers, `FreeRTOS.h`/`task.h` in `app*.h`, `<stdio.h>`, `<stdlib.h>` |
 | `src/config/` | Product constants, shared status enums, physical unit structs | `<stdint.h>`, `<stdbool.h>`, `<stddef.h>`, own `.h` | `app`, `bsp`, `drvs`, `libs`, vendor SDK headers |
-| `src/bsp/` | Board-meaningful hardware API (`bspGpio_FaultLedSet`, `bspAdc_VbusReadMv`) | Own `.h`, `src/bsp/config/*.h`, `src/config/*.h`, `drvs/*/drv*.h`, `libs/*.h` | `src/app/*`, vendor SDK headers (BSP never touches MCU registers directly) |
+| `src/bsp/` | Board-meaningful hardware & RTOS seam API (`bspGpio_FaultLedSet`, `bspRtos_*`) | Own `.h`, `src/bsp/config/*.h`, `src/config/*.h`, `drvs/*/drv*.h`, `libs/*.h` | `src/app/*`, vendor SDK headers (BSP never touches MCU registers directly) |
 | `src/bsp/config/` | `const` wiring and peripheral configuration tables in `.rodata` | Own `.h`, `src/config/*.h`, `drvs/*/drv*.h` | `src/app/*`, vendor SDK headers |
 | `drvs/<periph>/` | Reusable MCU peripheral drivers (`drvPwm`, `drvAdc`, `drvUart`) | `src/config/*.h`, `libs/*.h`, vendor SDK headers **inside `drv*.c` only** | `src/app/*`, `src/bsp/*`, **vendor SDK headers inside any public `drv*.h`** |
 | `libs/<name>/` | Pure vertical algorithms (PID, filters, CRC, ring buffers, state tables) | `<stdint.h>`, `<stdbool.h>`, `<stddef.h>`, `src/config/*.h`, own `.h` | `src/app/*`, `src/bsp/*`, `drvs/*`, vendor SDK headers |
 
 - **Keep public `.h` headers 100% vendor-free (`[BENINGO-HDR-01]`).** No header in `src/app/`,
-  `src/bsp/`, `src/config/`, `libs/`, or `drvs/<periph>/drv*.h` may `#include` a vendor HAL/SDK
-  header (such as `stm32f4xx.h`, `driverlib.h`, or `nrf_gpio.h`) or expose a hardware register
-  pointer. Leaking a vendor header into a `.h` poisons every upstream translation unit and
-  makes host `gcc` compilation impossible.
+  `src/bsp/`, `src/config/`, `libs/`, or `drvs/<periph>/drv*.h` may `#include` a vendor SDK
+  header (`stm32f4xx.h`, `driverlib.h`, `nrf_gpio.h`) or expose a hardware register pointer.
 - **Name BSP functions after the board schematic, never MCU pin numbers (`[BENINGO-BSP-01]`).**
-  Callers in `src/app/` should read like domain logic (`bspGpio_GateDriverEnable(true)`,
-  `bspPwm_BuckPhaseSetDuty(duty_permille)`), never `bspGpio_SetPA8(true)` or
-  `bspTim1_SetCh1(500)`. When a board revision moves a signal from `PA8` to `PB12`, only
-  `src/bsp/config/` changes; `src/app/` has zero diff.
+  Callers in `src/app/` use domain names (`bspGpio_GateDriverEnable(true)`,
+  `bspPwm_BuckPhaseSetDuty(duty_permille)`), never `bspGpio_SetPA8(true)`.
 - **Update all three BSP touchpoints together when changing a driver (`[BENINGO-BSP-02]`).**
-  Whenever you add or modify a peripheral driver in `drvs/<periph>/`, update in the same
-  change: (1) `src/bsp/config/bsp<Periph>Cfg.h/.c` (channel enum + `const` config table),
-  (2) `src/bsp/bsp<Periph>.h/.c` (board-meaningful wrapper functions), and (3) your board's
-  `bsp_Init()` bring-up sequence.
-- **Write standalone modules with the same separation.** Even in a smaller project without full
-  `app`/`bsp`/`drv` folders, split pure domain logic (`*_core.h/.c`) from hardware access
-  (`*_hal.h/.c`) and keep all public headers free of vendor SDK includes.
+  Synchronize (1) `src/bsp/config/bsp<Periph>Cfg.h/.c`, (2) `src/bsp/bsp<Periph>.h/.c`, and
+  (3) `bsp_Init()`. In smaller standalone projects, keep the same `*_core.h/.c` vs. `*_hal.h/.c`
+  separation.
 
 ## 4. Configuration tables and `.rodata` Flash discipline
 
-- **Drive peripherals from `const` configuration tables, not hardcoded `#define`s
-  (`[BENINGO-CFG-01]`).** A driver (`drvPwm.c`) should own zero board-specific knowledge.
-  Define a `Drv<Periph>Config_t` struct in `drv<Periph>.h` and pass a pointer to a `const`
-  table into `drv<Periph>_Init`:
+- **Drive peripherals from `const` configuration tables, not `#define`s (`[BENINGO-CFG-01]`).**
+  Define `Drv<Periph>Config_t` in `drv<Periph>.h` and pass a `const` table to `drv<Periph>_Init`:
 
 ```c
 /* drvs/pwm/drvPwm.h — 100% vendor-free public header */
@@ -123,11 +100,9 @@ MUST_CHECK Status_e drvPwm_Init(const DrvPwmConfig_t * const configTable,
                                 size_t numChannels);
 ```
 
-- **Qualify every configuration table `const` so the linker places it in `.rodata` Flash
-  (`[BENINGO-CFG-CONST]`).** SRAM is the scarcest resource on a microcontroller. A mutable
-  configuration table is copied from Flash into `.data` SRAM at boot and can be corrupted by a
-  stray pointer write. Pair every table with a compile-time `_Static_assert` proving its
-  element count matches the channel enum (`[MISRA-STATIC-ASSERT]`):
+- **Qualify every configuration table `const` so it lands in `.rodata` Flash
+  (`[BENINGO-CFG-CONST]`).** Mutable tables waste `.data` SRAM and risk pointer corruption. Pair
+  every table with a `_Static_assert` matching the channel enum (`[MISRA-STATIC-ASSERT]`):
 
 ```c
 /* src/bsp/config/bspPwmCfg.h */
@@ -144,16 +119,12 @@ extern const DrvPwmConfig_t kBspPwmConfigTable[BSP_PWM_CH_COUNT];
 /* src/bsp/config/bspPwmCfg.c — lands in .rodata (0 bytes of SRAM) */
 const DrvPwmConfig_t kBspPwmConfigTable[BSP_PWM_CH_COUNT] = {
     [BSP_PWM_CH_BUCK_HIGH] = {
-        .hwInstanceId         = 0U,
-        .switchingFreq_hz     = { .hz = 100000U },
-        .initialDuty_permille = { .permille = 0U },
-        .isActiveLow          = false
+        .hwInstanceId = 0U, .switchingFreq_hz = { .hz = 100000U },
+        .initialDuty_permille = { .permille = 0U }, .isActiveLow = false
     },
     [BSP_PWM_CH_COOLING_FAN] = {
-        .hwInstanceId         = 1U,
-        .switchingFreq_hz     = { .hz = 25000U },
-        .initialDuty_permille = { .permille = 200U },
-        .isActiveLow          = false
+        .hwInstanceId = 1U, .switchingFreq_hz = { .hz = 25000U },
+        .initialDuty_permille = { .permille = 200U }, .isActiveLow = false
     }
 };
 
@@ -161,24 +132,18 @@ _Static_assert(ARRAY_LEN(kBspPwmConfigTable) == (size_t)BSP_PWM_CH_COUNT,
                "kBspPwmConfigTable size must match BspPwmChannel_e count");
 ```
 
-- **Keep `src/config/` headers pure and declarative.** Product-level tuning parameters
-  (overvoltage limits, control-loop periods, filter coefficients, fault debounce counts) belong
-  in `src/config/*Cfg.h` as typed constants or `enum` values with physical unit suffixes
-  (`#define APP_THERMAL_TRIP_MV (3100)`), never scattered as magic numbers in `.c` files.
+- **Keep `src/config/` headers pure and declarative.** Place product tuning limits in
+  `src/config/*Cfg.h` with unit suffixes (`#define APP_THERMAL_TRIP_MV (3100)`).
 
 ## 5. Opaque handles and module state
 
-- **Allocate all module state statically at compile time (`[JPL-3]`).** Never call `malloc`,
-  `calloc`, `realloc`, or `free` in any layer. Heap allocation introduces non-deterministic
-  execution time, fragmentation, and out-of-memory failures that cannot be proven safe.
-- **Hide mutable state inside the `.c` file as `static` variables (`[BARR-1.8.a]`).** Never
-  expose a module's internal state struct or global variables via `extern` in a header (the
-  sole exception is a `const` configuration table declared in `bsp*Cfg.h`).
-- **Use channel enums or opaque handles backed by a fixed `static` pool
-  (`[GRENNING-ADT-01]`).** For multi-instance modules (`libs/ring_buf`, `libs/pid`, or
-  multi-instance drivers), declare an incomplete struct pointer in the `.h` file (`typedef
-  struct LibPid_s *LibPidHandle_t;`) or pass a bounded channel index, and keep the struct
-  definition and fixed instance array `static` inside the `.c` file:
+- **Allocate all module state and RTOS objects statically (`[JPL-3]`, `[MISRA-21.3]`,
+  `[RTOS-STATIC-01]`).** Never call `malloc`, `calloc`, `realloc`, `free`, or dynamic RTOS APIs
+  (`xTaskCreate`, `xQueueCreate`, `xSemaphoreCreateMutex`). Use `xTaskCreateStatic`,
+  `xQueueCreateStatic`, and `xSemaphoreCreateMutexStatic` backed by fixed `static` buffers.
+- **Hide mutable state inside `.c` as `static` variables (`[BARR-1.8.a]`).** Never expose
+  mutable globals via `extern` in a header. For multi-instance modules, use channel enums or
+  opaque handles backed by a fixed `static` pool (`[GRENNING-ADT-01]`):
 
 ```c
 /* Inside drvPwm.c — private state hidden from all callers */
@@ -191,39 +156,29 @@ static bool s_isInitialized = false;
 
 ### Naming conventions (`[BARR-6.1]` + `[BENINGO-NAME-01]`)
 
-*Note on source harmonization:* Beningo uses `Module_PascalCase` (`Dio_ChannelRead`,
-`DioConfig_t`) while BARR-C uses `module_snake_case` (`adc_read`, `adc_config_t`). We combine
-BARR-C's module-prefix and unit-suffix discipline with Beningo's clear visual separation between
-the lowercase module prefix and the `ActionNoun` operation:
+We combine BARR-C's module-prefix and unit-suffix discipline with Beningo's `module_ActionNoun`
+separation:
 
 | Kind | Convention | Examples |
 | --- | --- | --- |
 | Public functions | `module_ActionNoun()` | `appThermal_RunStep()`, `bspPwm_FanSetDuty()`, `drvAdc_ChannelReadMv()`, `ringBuf_PushByte()` |
-| Private functions (`static` in `.c`) | `static` + `PascalCase` or `module_ PrivAction()` | `static Status_e ValidateChannel(size_t channel)` |
-| Struct & typedef types | `PascalCase_t` | `DrvPwmConfig_t`, `AppThermalState_t`, `FreqHz_t` |
-| Enum types & values | `PascalCase_e` / `UPPER_SNAKE_CASE` | `Status_e`, `BspPwmChannel_e`, `STATUS_OK`, `STATUS_ERR_TIMEOUT` |
-| Constants & macros | `UPPER_SNAKE_CASE` with `U` suffix on unsigned literals | `ADC_POLL_TIMEOUT_CYCLES (10000U)`, `ARRAY_LEN(a)` |
-| File-scope `static` state | `s_camelCase` with unit suffix | `s_configTable`, `s_lastSample_mv`, `s_isInitialized` |
-| `const` tables | `kPascalCase` | `kBspPwmConfigTable`, `kCrc8LookupTable` |
-| Local variables & fields | `camelCase` + physical unit suffix | `busVoltage_mv`, `phaseCurrent_ma`, `period_us`, `duty_permille` |
+| Private functions (`static` in `.c`) | `static` + `PascalCase` or `module_PrivAction()` | `static Status_e ValidateChannel(size_t channel)` |
+| Struct / Enum types & constants | `PascalCase_t` / `PascalCase_e` / `UPPER_SNAKE_CASE` | `DrvPwmConfig_t`, `Status_e`, `STATUS_OK`, `ADC_POLL_TIMEOUT_CYCLES (10000U)` |
+| File-scope `static` / `.rodata` `const` | `s_camelCase` / `kPascalCase` | `s_configTable`, `s_lastSample_mv`, `kBspPwmConfigTable` |
+| Local variables & struct fields | `camelCase` + physical unit suffix | `busVoltage_mv`, `phaseCurrent_ma`, `period_us`, `duty_permille` |
+| **Framework & vector exemptions** | Keep exact RTOS/startup signatures | `void vCommsTask(void *pvParameters)` (`(void)pvParameters;`), non-`static` `void USART2_IRQHandler(void)`, `HAL_UART_RxCpltCallback()` in `drv*.c` |
 
 ### Fixed-width types and zero-cost physical unit wrappers
 
 - **Use `<stdint.h>`, `<stdbool.h>`, and `<stddef.h>` exclusively (`[BARR-5.2.a]`).** Never use
-  bare `int`, `short`, `long`, or `unsigned` for data — their bit widths vary across host x86
-  (64-bit LP64/LLP64) and 16/32-bit MCU targets. Use `uint8_t`, `uint16_t`, `uint32_t`,
-  `int32_t`, `size_t`, and `bool`.
+  bare `int`, `short`, `long`, or `unsigned` for data; use `uint8_t`..`uint64_t`, `int32_t`,
+  `size_t`, and `bool`.
 - **Ban `float` and `double` unless hardware FPU usage is explicitly required
-  (`[MISRA-NO-FLOAT]`).** On Cortex-M0/M0+/M3 and base RISC-V cores, a single accidental
-  `double` literal pulls in kilobytes of soft-float library code and destroys deterministic
-  timing. Represent fractional quantities with fixed-point integers in explicit physical units:
-  millivolts (`_mv`), milliamps (`_ma`), microvolts (`_uv`), hertz (`_hz`), milliseconds
-  (`_ms`), microseconds (`_us`), and permille (`_permille`, where `0..1000` = `0.0%..100.0%`).
-- **Wrap distinct physical units in single-field structs (`[MISRA-UNIT-WRAP]`).** Under the ARM
-  AAPCS and x86-64 System V ABIs, a single-field struct wrapping a 32-bit or 16-bit integer is
-  passed directly in CPU registers (`r0`–`r3` / `rdi`–`rcx`) with **zero** RAM or Flash
-  overhead, yet the C compiler rejects swapped arguments (`bspPwm_Configure(duty, freq)`) with
-  a hard compile error:
+  (`[MISRA-NO-FLOAT]`).** Use fixed-point integers with physical unit suffixes: `_mv`, `_ma`,
+  `_uv`, `_hz`, `_ms`, `_us`, and `_permille` (`0..1000` = `0.0%..100.0%`).
+- **Wrap distinct physical units in single-field structs (`[MISRA-UNIT-WRAP]`).** Under ARM
+  AAPCS, RISC-V, and x86-64 ABIs, single-field structs <= 4 bytes pass in CPU registers with
+  **zero** RAM/Flash overhead while rejecting swapped arguments at compile time:
 
 ```c
 /* src/config/project_types.h */
@@ -239,19 +194,13 @@ _Static_assert(sizeof(Millivolts_t) == sizeof(int32_t), "Millivolts_t must be 4 
 ```
 
 - **Respect the MISRA Essential Type Model (`[MISRA-10.1]`).** Never mix signed and unsigned
-  operands in arithmetic or comparisons, never use bitwise operators (`<<`, `>>`, `&`, `|`,
-  `~`) on signed types (`[BARR-5.3.b]`), and append `U` to every unsigned integer literal
-  (`0U`, `1000U`, `UINT32_C(1) << 15U`) (`[MISRA-7.2]`).
-- **Avoid `bool` parameters in public APIs when meaning is unclear at the call site.** Prefer a
-  two-value `enum` (`BspRelayState_e`) or separate functions (`bspRelay_Close(void)` /
-  `bspRelay_Open(void)`) when `bspRelay_Set(true)` would be ambiguous.
+  operands (`[MISRA-10.4]`), never shift/mask signed types (`[BARR-5.3.b]`), append `U` to
+  unsigned literals (`[MISRA-7.2]`), and prefer two-value enums over ambiguous `bool` params.
 
 ## 7. Errors, assertions, and contracts
 
-- **Return an explicit status enum marked `MUST_CHECK` (`[JPL-7]` + `[MISRA-17.7]`).** Every
-  fallible function across `app`, `bsp`, `drv`, and `libs` returns a `Status_e` (or
-  layer-specific status enum) annotated with `__attribute__((warn_unused_result))` so callers
-  cannot silently ignore hardware timeouts or invalid arguments:
+- **Return an explicit status enum marked `MUST_CHECK` (`[JPL-7]` + `[MISRA-17.7]`).** Annotate
+  fallible functions with `__attribute__((warn_unused_result))` so callers cannot ignore errors:
 
 ```c
 #if defined(__GNUC__) || defined(__clang__)
@@ -273,10 +222,8 @@ typedef enum {
 } Status_e;
 ```
 
-- **Validate every pointer, index, and range at function entry (`[JPL-5]` + `[JPL-7]`).** Every
-  public function checks `NULL` pointers, `s_isInitialized`, channel bounds (`channel <
-  s_numChannels`), and physical parameter bounds (`duty.permille <= 1000U`) **before**
-  dereferencing pointers or touching hardware:
+- **Validate every pointer, index, and range at function entry (`[JPL-5]` + `[JPL-7]`).** Check
+  `NULL` pointers, `s_isInitialized`, channel bounds, and physical ranges before dereferencing:
 
 ```c
 Status_e drvPwm_SetDuty(size_t channel, DutyPermille_t duty_permille) {
@@ -294,20 +241,15 @@ Status_e drvPwm_SetDuty(size_t channel, DutyPermille_t duty_permille) {
 }
 ```
 
-- **Keep assertions side-effect-free and active (`[JPL-5]`).** Never put state-mutating calls
-  inside an `ASSERT(...)` macro. Pair runtime precondition checks with compile-time
-  `_Static_assert` checks on array sizes, enum counts, and fixed-point scaling constants.
+- **Keep assertions side-effect-free (`[JPL-5]`).** Never put state-mutating calls inside
+  `ASSERT(...)`. Pair runtime guards with compile-time `_Static_assert` checks.
 
-## 8. Control flow and bounded loops
+## 8. Control flow, bounded loops, and watchdog liveness
 
 - **Keep control flow strictly acyclic (`[JPL-1]`).** Never use `goto`, `setjmp`, `longjmp`,
-  variable-length arrays (VLAs), or direct/indirect recursion in any firmware file. Acyclic
-  control flow ensures that worst-case execution time (WCET) and maximum call-stack depth can
-  be statically proven at compile time (`-Wstack-usage=128 -Wvla`).
-- **Bound every loop with a fixed upper limit (`[JPL-2]`).** An unbounded hardware polling loop
-  (`while ((UART_SR & TX_EMPTY) == 0U) {}`) will freeze the entire MCU if a peripheral clock is
-  gated, a bus wire is shorted, or an external sensor fails. Every polling loop must decrement
-  or increment against an explicit timeout constant and return `STATUS_ERR_TIMEOUT`:
+  VLAs, or recursion so worst-case stack depth is statically provable (`-Wstack-usage=128`).
+- **Bound every hardware polling loop with a fixed timeout (`[JPL-2]`).** Unbounded register
+  polls (`while ((UART_SR & TX_EMPTY) == 0U) {}`) freeze the MCU if a clock or bus faults:
 
 ```c
 /* BAD — hangs forever if peripheral clock or bus faults */
@@ -324,31 +266,25 @@ Status_e WaitAdcReady(uint32_t maxCycles) {
 }
 ```
 
-- **Keep every function <= 60 lines (`[JPL-4]`).** Functions longer than 60 lines (excluding
-  blank lines and comments) are hard to review and hide deep branching. Extract cohesive
-  `static` helper functions and keep `if`/`else` nesting to at most 2–3 levels (`[BARR-8.2.b]`).
-- **Put mandatory braces on every control statement (`[BARR-1.3.a]`).** Every `if`, `else`,
-  `for`, `while`, `do`, and `switch` body must be enclosed in `{}` braces, even for a single
-  statement. Configure `.clang-format` with `InsertBraces: true` and
-  `AllowShortIfStatementsOnASingleLine: Never`.
-- **Give every `switch` a `default:` clause (`[BARR-8.3.b]` + `[MISRA-16.4]`).** Handle
-  unexpected enum values defensively in `default:` so corrupted memory cannot silently skip
-  execution.
+- **Bound RTOS task waits and use a rendezvous watchdog (`[RTOS-WDT-01]`).** RTOS task
+  superloops (`for (;;)`) are valid when every iteration yields via a finite-timeout OS call
+  (`pdMS_TO_TICKS(50U)`). Never block indefinitely with `portMAX_DELAY` / `K_FOREVER` in
+  watchdog-monitored tasks, and feed the hardware watchdog only from a supervisor task after
+  verifying all task heartbeat flags within the window.
+- **Keep functions <= 60 lines (`[JPL-4]`), nesting <= 2–3 levels (`[BARR-8.2.b]`), mandatory
+  `{}` braces on every control block (`[BARR-1.3.a]`), and a `default:` in every `switch`
+  (`[BARR-8.3.b]`, `[MISRA-16.4]`).**
 
-## 9. Interrupts, `volatile`, and atomic safety
+## 9. Interrupts, `volatile`, atomic safety, and RTOS concurrency
 
-- **Keep ISRs minimal: acknowledge, record, and exit (`[BARR-6.5]`).** An Interrupt Service
-  Routine should clear the hardware interrupt flag, store the sample or push a byte into a
-  lock-free ring buffer (`volatile` flag or SPSC queue), and return immediately. Never run
-  filtering math, state machine transitions, or polling loops inside an ISR.
-- **Qualify every MMIO register and ISR-shared variable `volatile` (`[BARR-1.8.c]`).** Without
-  `volatile`, the compiler may hoist a register read out of a loop or eliminate repeated writes
-  to a hardware control register.
-- **Remember that `volatile` does not mean atomic (`[BARR-ISR-ATOMIC]`).** On a 32-bit MCU, a
-  64-bit timestamp or a multi-field struct (and on an 8/16-bit MCU, even a 32-bit counter) or a
-  read-modify-write (`s_sharedCount++`) can be torn across an interrupt boundary. Protect
-  shared state between main thread and ISR using a critical section that saves and restores
-  the interrupt mask (never an unconditional `enable_irq()` that breaks nested callers):
+- **Keep ISRs minimal and use only `FromISR` OS primitives (`[BARR-6.5]`, `[RTOS-ISR-01]`).**
+  Acknowledge the interrupt flag, push to a lock-free buffer or call `xQueueSendFromISR` /
+  `vTaskNotifyGiveFromISR`, and yield via `portYIELD_FROM_ISR()`. Never call blocking OS APIs
+  (`xQueueSend`, `xSemaphoreTake`, `vTaskDelay`) inside an ISR. Linker vector handlers
+  (`void USART2_IRQHandler(void)`) must keep external linkage (never `static`).
+- **Qualify MMIO and ISR-shared state `volatile` (`[BARR-1.8.c]`) and guard multi-word or RMW
+  updates with save/restore critical sections (`[BARR-ISR-ATOMIC]`):** Never use an
+  unconditional `__enable_irq()` that breaks nested callers:
 
 ```c
 uint32_t bspTimer_FaultCountSnapshot(void) {
@@ -359,18 +295,21 @@ uint32_t bspTimer_FaultCountSnapshot(void) {
 }
 ```
 
-- **Never use C bit-fields to map hardware registers (`[BARR-NO-BITFIELDS]`).** Bit-field
-  ordering (MSB-first vs. LSB-first), alignment padding, and the width of the generated memory
-  access instruction (`LDRB` vs. `LDR`) are implementation-defined by the C standard. Use
-  explicit `_POS` and `_MASK` constants with `UINT32_C()` shifts.
+- **Use priority-inheriting mutexes for shared buses (`[RTOS-MUTEX-01]`).** Lock shared SPI/I2C/
+  UART buses across tasks with `xSemaphoreCreateMutexStatic()` (with finite timeout), never a
+  binary semaphore (which causes unbounded priority inversion).
+- **Keep RTOS headers out of `src/app/*.h` (`[RTOS-SEAM-01]`).** Use the Humble Task Wrapper
+  pattern: put pure state transitions in `app<Name>_Step()` (or behind `src/bsp/bspRtos.h`) so
+  host `gcc` unit tests run without starting a FreeRTOS/Zephyr scheduler.
+- **Never use C bit-fields to map hardware registers (`[BARR-NO-BITFIELDS]`).** Use explicit
+  `_POS` and `_MASK` macros with `UINT32_C()` shifts.
 
 ## 10. Dual-target seams and host unit testing
 
 - **Use link-time substitution instead of `#ifdef TEST` clutter (`[GRENNING-SEAM-01]`).**
-  Never litter production `.c` files with `#ifdef UNIT_TEST` branches. Because `src/app/`,
-  `src/bsp/`, `src/config/`, `libs/`, and `drvs/<periph>/drv*.h` are 100% free of vendor SDK
-  headers, you can compile `app`, `bsp`, and `libs` with host `gcc` and link them against a
-  test fake (`fake_drv<Periph>.c`) that implements the same `drv<Periph>.h` functions:
+  Compile `app`, `bsp`, and `libs` on host `gcc` and link against `fake_drv<Periph>.c` (or
+  `fake_bsp*.c`) with zero `#ifdef UNIT_TEST` branches and zero function-pointer vtable overhead
+  (`[JPL-9]`):
 
 ```c
 /* drvs/pwm/test/fake_drvPwm.c — linked in place of drvPwm.c during host `make test` */
@@ -393,20 +332,14 @@ Status_e drvPwm_SetDuty(size_t channel, DutyPermille_t duty_permille) {
 }
 ```
 
-- **Why link-time substitution wins over function-pointer vtables (`[JPL-9]`):** NASA JPL Rule
-  9 restricts function pointers because indirect calls defeat static call-graph and stack-depth
-  verification. Link-time substitution gives you full test doubles (fakes and spies) with zero
-  function pointers, zero `#ifdef TEST` macros, and zero RAM/Flash cost on the target MCU.
-- **Apply the Humble Object pattern (`[GRENNING-HUMBLE-01]`).** Keep `drv*.c` as a thin,
-  deterministic hardware executor (validate parameters, compute register masks, write MMIO).
-  Push all state transitions, hysteresis, PID math, packet framing, and fault debouncing into
-  `src/app/`, `src/bsp/`, or `libs/` where host unit tests exercise 100% of branches.
+- **Apply the Humble Object pattern (`[GRENNING-HUMBLE-01]`).** Keep `drv*.c` and RTOS task
+  loops as thin executors; push hysteresis, PID math, framing, and watchdog supervision into
+  host-tested `src/app/`, `src/bsp/`, or `libs/` modules.
 
 ## 11. Standardized file layout and Doxygen hygiene
 
-Every `.h` and `.c` file across `app`, `bsp`, `config`, `drv`, and `libs` follows a fixed
-section order with clear visual section banners (`[BENINGO-LAYOUT-01]` + `[BARR-4.3.b]`) so any
-engineer or static check can locate declarations immediately:
+Every `.h` and `.c` file follows a fixed section order with visual banners
+(`[BENINGO-LAYOUT-01]` + `[BARR-4.3.b]`):
 
 ### Header file (`.h`) section order
 
@@ -429,19 +362,7 @@ engineer or static check can locate declarations immediately:
 #include "project_types.h"
 
 //-------------------------------------------------------------------------------------------------//
-//             Exported Macros
-//-------------------------------------------------------------------------------------------------//
-
-//-------------------------------------------------------------------------------------------------//
-//             Exported Types
-//-------------------------------------------------------------------------------------------------//
-
-//-------------------------------------------------------------------------------------------------//
-//             Exported Variables
-//-------------------------------------------------------------------------------------------------//
-
-//-------------------------------------------------------------------------------------------------//
-//             Exported Prototypes
+//             Exported Macros / Types / Variables / Prototypes
 //-------------------------------------------------------------------------------------------------//
 
 #endif /* APP_THERMAL_H_ */
@@ -450,21 +371,14 @@ engineer or static check can locate declarations immediately:
 ### Source file (`.c`) section order
 
 1. Doxygen `@file` and `@brief` banner
-2. `Includes` (always `#include` the module's own `.h` first to verify prototype match)
-3. `Private Macros`
-4. `Private Types`
-5. `Private Variables` (`static` module state)
-6. `Private Prototypes` (`static` helper declarations)
-7. `Implementation` (public functions first, then `static` helpers)
-
-- **Document contracts on every public prototype in `.h`.** State `@brief`, `@param` (including
-  valid physical range and units), and `@return` (`STATUS_OK` and specific error codes). Never
-  leave commented-out code in `.c` or `.h` files (`[BARR-2.1.c]`).
+2. `Includes` (own `.h` first) -> `Private Macros` -> `Private Types` -> `Private Variables`
+   (`static`) -> `Private Prototypes` (`static`) -> `Implementation`.
+- **Document contracts (`@brief`, `@param` with units/bounds, `@return`) on public prototypes**
+  and never leave commented-out code (`[BARR-2.1.c]`).
 
 ## 12. Compiler flags and static analysis
 
-Always compile C11 firmware and host unit tests with the strict "locked-door" warning set
-(`[JPL-10]`):
+Always compile C11 firmware and host unit tests with the strict warning set (`[JPL-10]`):
 
 ```makefile
 CFLAGS := -std=c11 -Os -g3 \
@@ -478,37 +392,31 @@ CFLAGS := -std=c11 -Os -g3 \
 
 ## 13. Final checklist
 
-Before returning any Embedded C code, verify every item:
-
-- [ ] Zero vendor SDK headers or register pointers in any `.h` file or in `app`, `bsp`,
-      `config`, or `libs` (`[BENINGO-HDR-01]`).
-- [ ] All configuration tables are `const` (in `.rodata` Flash) and paired with `_Static_assert`
-      size checks (`[BENINGO-CFG-CONST]`, `[MISRA-STATIC-ASSERT]`).
-- [ ] Zero dynamic allocation (`malloc`, `calloc`, `realloc`, `free`) and zero `<stdio.h>`
-      formatting in firmware (`[JPL-3]`).
+- [ ] Zero vendor SDK headers or register pointers in `.h` files or `app`/`bsp`/`config`/`libs`,
+      and zero RTOS headers in `src/app/*.h` (`[BENINGO-HDR-01]`, `[RTOS-SEAM-01]`).
+- [ ] All configuration tables are `const` in `.rodata` Flash and paired with `_Static_assert`
+      (`[BENINGO-CFG-CONST]`, `[MISRA-STATIC-ASSERT]`).
+- [ ] Zero dynamic allocation (`malloc`/`free`, `xTaskCreate`, `xQueueCreate`) and zero
+      `<stdio.h>` in firmware (`[JPL-3]`, `[MISRA-21.3]`, `[RTOS-STATIC-01]`).
 - [ ] Zero `goto`, `setjmp`/`longjmp`, VLAs, or recursion (`[JPL-1]`).
-- [ ] Every hardware polling loop has an explicit timeout bound and returns
-      `STATUS_ERR_TIMEOUT` (`[JPL-2]`).
-- [ ] Every function is <= 60 lines and validates all pointers, channels, and ranges at entry
-      (`[JPL-4]`, `[JPL-5]`).
-- [ ] Every fallible function returns a `MUST_CHECK` status enum, and every caller checks it
-      (`[JPL-7]`, `[MISRA-17.7]`).
-- [ ] Fixed-width `<stdint.h>` types, physical unit suffixes (`_mv`, `_ma`, `_hz`, `_ms`,
-      `_permille`), and single-field unit wrapper structs are used instead of bare `int` or
-      `float` (`[BARR-5.2.a]`, `[MISRA-UNIT-WRAP]`).
-- [ ] Mandatory `{}` braces wrap every `if`, `else`, `for`, `while`, `do`, and `switch` body
-      (`[BARR-1.3.a]`).
-- [ ] ISR-shared variables are `volatile` and multi-byte/RMW accesses are guarded by
-      save/restore critical sections (`[BARR-1.8.c]`, `[BARR-ISR-ATOMIC]`).
-- [ ] Standardized `@file`/`@brief` header and `//---...---//` section dividers appear in every
-      `.h` and `.c` file (`[BENINGO-LAYOUT-01]`, `[BARR-4.3.b]`).
-- [ ] Code compiles cleanly on host `gcc` with link-time fakes and zero `#ifdef TEST` clutter
+- [ ] Every hardware polling loop has a finite timeout (`[JPL-2]`), and every RTOS wait uses a
+      bounded tick timeout with rendezvous watchdog supervision (`[RTOS-WDT-01]`).
+- [ ] Every function is <= 60 lines, validates parameters at entry (`[JPL-4]`, `[JPL-5]`), and
+      returns a `MUST_CHECK` status enum (`[JPL-7]`, `[MISRA-17.7]`).
+- [ ] Fixed-width `<stdint.h>` types, unit suffixes (`_mv`, `_ma`, `_hz`, `_ms`, `_permille`),
+      and single-field unit structs are used (`[BARR-5.2.a]`, `[MISRA-UNIT-WRAP]`).
+- [ ] Mandatory `{}` braces on all control blocks and `default:` on all `switch` statements
+      (`[BARR-1.3.a]`, `[BARR-8.3.b]`, `[MISRA-16.4]`).
+- [ ] ISR-shared state is `volatile` with save/restore critical sections (`[BARR-ISR-ATOMIC]`),
+      ISRs use only `FromISR` APIs (`[RTOS-ISR-01]`), and shared buses use priority-inheriting
+      mutexes (`[RTOS-MUTEX-01]`).
+- [ ] Standardized `@file`/`@brief` header and `//---...---//` banners appear in all files
+      (`[BENINGO-LAYOUT-01]`, `[BARR-4.3.b]`), and host `gcc` tests pass via link-time fakes
       (`[GRENNING-SEAM-01]`).
 
 ## References
 
-Load the matching digest from `references/` when a task needs deeper patterns, edge cases, or
-specific rule citations:
+Load the matching digest from `references/` when a task needs deeper patterns or citations:
 
 - `references/beningo-reusable-firmware.md`: 4-layer (`app`/`bsp`/`drv`/`vendor_sdk`) +
   vertical `libs/` architecture, `.rodata` `const` configuration tables, 3 BSP touchpoints, and
@@ -521,3 +429,7 @@ specific rule citations:
   mandatory braces, `const`/`volatile` discipline, register shift/mask macros, and ISR safety.
 - `references/misra-and-type-safety.md`: MISRA C Essential Type Model (Rules 10.1–10.8),
   zero-cost single-field physical unit structs, `_Static_assert` proofs, and `MUST_CHECK`.
+- `references/rtos-and-isr-frameworks.md`: static RTOS allocation (`[RTOS-STATIC-01]`),
+  `FromISR` deferred interrupt handling (`[RTOS-ISR-01]`), priority-inheriting mutexes
+  (`[RTOS-MUTEX-01]`), bounded blocking and watchdog supervision (`[RTOS-WDT-01]`), OS-agnostic
+  Humble Task Wrappers (`[RTOS-SEAM-01]`), and framework/vector signature exemptions.

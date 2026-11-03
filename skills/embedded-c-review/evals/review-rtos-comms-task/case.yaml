@@ -1,0 +1,16 @@
+schema_version: "1.1"
+name: review-rtos-comms-task
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  A prioritized review report in REVIEW.md organized into Must fix, Should fix, Consider, and
+  What's already good. It flags the dynamic RTOS heap allocations (xQueueCreate,
+  xSemaphoreCreateBinary, xTaskCreate), the blocking xQueueSend call inside USART2_IRQHandler,
+  the portMAX_DELAY wait in vCommsTask that starves bspWatchdog_ReportHeartbeat, the binary
+  semaphore used for shared RS-485 bus mutual exclusion instead of a priority-inheriting mutex,
+  the unconditional __enable_irq() and non-volatile s_rxFrameErrors shared with the ISR, the
+  FreeRTOS and vendor SDK headers leaked into comms_task.h, the MMIO bit-field struct overlay,
+  and the switch missing a default branch, while preserving valid RTOS/vector conventions
+  (non-static USART2_IRQHandler, void vCommsTask(void *pvParameters) with (void)pvParameters;,
+  and the const kCommsBaudConfigTable in .rodata with _Static_assert) and leaving comms_task.h
+  and comms_task.c unmodified.

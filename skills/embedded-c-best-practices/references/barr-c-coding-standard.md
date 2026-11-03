@@ -66,10 +66,18 @@ if ((reg & STATUS_READY_MASK) == 0U) {
 }
 ```
 
+- **`[BARR-8.2.b]` (Shallow control-flow nesting <= 2–3 levels):** Keep `if`/`else` and loop
+  nesting depth to at most 2–3 levels by validating preconditions with early-return guard
+  clauses and extracting `static` helper functions.
 - **`[BARR-8.2.c]` (No assignment inside conditions):** Never write `if ((err = fn()) != 0)`.
   Assign `Status_e const status = fn();` on its own line, then test `if (status != STATUS_OK)`.
 - **`[BARR-8.3.b]` (Every `switch` has a `default:`):** Always include a `default:` branch in
   every `switch` statement to catch unexpected or corrupted enum values.
+- **`[BARR-2.1.c]` (No commented-out code):** Never commit commented-out code blocks or `#if 0`
+  graveyards in `.c` or `.h` files; rely on version control history.
+- **`[BARR-4.3.b]` (Standardized section divider banners):** Separate file sections (`Includes`,
+  `Exported Types`, `Private Variables`, `Implementation`) with uniform `//---...---//` banners
+  (harmonized with `[BENINGO-LAYOUT-01]`).
 
 ## 4. Fixed-Width Types and Register Bit-Fields
 

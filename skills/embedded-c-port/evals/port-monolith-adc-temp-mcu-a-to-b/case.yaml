@@ -1,0 +1,15 @@
+schema_version: "1.1"
+name: port-monolith-adc-temp-mcu-a-to-b
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  A cross-MCU port and architectural split of the legacy monolithic 16-bit MCU-A NTC
+  temperature monitor (`ntc_monitor.h/.c`) onto the 32-bit MCU-B register HAL
+  (`drvs/vendor_sdk/vendor_mcu_b_hal.h`), producing 100% vendor-free public headers, a const
+  .rodata configuration table paired with _Static_assert, static state storage with zero
+  malloc/free, fixed-point integer physical units (_mv, _deci_c) with zero float/double,
+  accurate 12-bit 3300 mV ADC scaling, direct W1C assignment on MCU_B_ADC1->ISR, bounded
+  hardware polling loops returning STATUS_ERR_TIMEOUT, active-low heater cutoff GPIO handling
+  via BSRR, volatile + save/restore critical section protection for ISR fault counters,
+  mandatory braces, host gcc unit tests with a link-time fake, and a complete PORTING.md
+  mapping and scaling report.

@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: port-layered-pwm-spi-drv-mcu-a-to-b
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  A surgical Case A cross-MCU port of a compliant 4-layer Beningo SPI DAC codebase from
+  MCU-A (`vendor_mcu_a_spi.h`) to MCU-B (`vendor_mcu_b_spi.h`) where `src/app/appDacCtrl.h`,
+  `src/app/appDacCtrl.c`, `src/bsp/bspSpi.h`, `src/bsp/bspSpi.c`, and `drvs/spi/drvSpi.h`
+  have zero diff; only `drvs/spi/drvSpi.c` and `src/bsp/config/bspSpiCfg.c` (plus tests and
+  `PORTING.md`) are updated to target `MCU_B_SPI1` (`hwInstanceId = 1U`), `GPIOC` pin 2
+  active-low chip-select (`csPortId = 2U`, `csPin = 2U`) via `BSRR`, 96 MHz APB baud-rate
+  divider calculation, MSB-first 16-bit to 8-bit `TXDR8`/`RXDR8` byte-FIFO serialization,
+  bounded polling timeouts, and direct `IFCR` write-1-to-clear flag handling.

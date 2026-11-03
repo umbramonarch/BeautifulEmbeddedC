@@ -1,7 +1,7 @@
 {
   "name": "beautiful-embedded-c",
-  "version": "1.0.0",
-  "description": "Write, review, and enforce deterministic, safety-critical Embedded C (C11): a writing skill and a review skill covering all firmware layers (app, bsp, config, drv, libs, ISRs, and host tests), distilled from Jacob Beningo's Reusable Firmware Development, James Grenning's Test-Driven Development for Embedded C, NASA JPL's Power of 10, BARR-C:2018, and the MISRA C Essential Type Model, plus drop-in lints and multi-layer scaffolding.",
+  "version": "1.1.0",
+  "description": "Write, review, port, and enforce deterministic, safety-critical Embedded C (C11) across all firmware layers (app, bsp, config, drv, libs, ISRs, RTOS tasks, and host tests): a writing skill, a review skill, and a cross-MCU porting skill, distilled from Jacob Beningo's Reusable Firmware Development, James Grenning's Test-Driven Development for Embedded C, NASA JPL's Power of 10, BARR-C:2018, the MISRA C Essential Type Model, and RTOS & ISR framework conventions (six authoritative reference digests), plus drop-in lints, dual-target CMake and Make build configs, and multi-layer scaffolding.",
   "license": "MIT",
   "author": {
     "name": "umbramonarch",
@@ -17,6 +17,8 @@
     "embedded-c",
     "firmware",
     "misra",
+    "porting",
+    "rtos",
     "skill"
   ]
 }

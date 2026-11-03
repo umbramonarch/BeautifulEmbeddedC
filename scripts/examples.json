@@ -1,0 +1,605 @@
+{
+  "_comment": "Harness for scripts/check-examples.py: shared headers plus optional per-file and per-block prelude, template, compile_from, and skip directives. See that script's module docstring for the schema.",
+  "headers": {
+    "must_check.h": [
+      "#ifndef BEC_EXAMPLES_MUST_CHECK_H_",
+      "#define BEC_EXAMPLES_MUST_CHECK_H_",
+      "",
+      "#if defined(__GNUC__) || defined(__clang__)",
+      "#define MUST_CHECK __attribute__((warn_unused_result))",
+      "#else",
+      "#define MUST_CHECK",
+      "#endif",
+      "",
+      "#endif /* BEC_EXAMPLES_MUST_CHECK_H_ */"
+    ],
+    "status_e.h": [
+      "#ifndef BEC_EXAMPLES_STATUS_E_H_",
+      "#define BEC_EXAMPLES_STATUS_E_H_",
+      "",
+      "typedef enum {",
+      "    STATUS_OK = 0,",
+      "    STATUS_ERR_NULL_PTR,",
+      "    STATUS_ERR_INVALID_CHANNEL,",
+      "    STATUS_ERR_INVALID_PARAM,",
+      "    STATUS_ERR_TIMEOUT,",
+      "    STATUS_ERR_UNINITIALIZED,",
+      "    STATUS_ERR_BUFFER_FULL,",
+      "    STATUS_ERR_BUFFER_EMPTY,",
+      "    STATUS_ERR_HW_FAULT",
+      "} Status_e;",
+      "",
+      "#endif /* BEC_EXAMPLES_STATUS_E_H_ */"
+    ],
+    "unit_types.h": [
+      "#ifndef BEC_EXAMPLES_UNIT_TYPES_H_",
+      "#define BEC_EXAMPLES_UNIT_TYPES_H_",
+      "",
+      "#include <stdint.h>",
+      "",
+      "typedef struct { uint32_t hz; }       FreqHz_t;",
+      "typedef struct { uint16_t permille; } DutyPermille_t;",
+      "typedef struct { int32_t  mv; }       Millivolts_t;",
+      "typedef struct { int32_t  ma; }       Milliamps_t;",
+      "typedef struct { uint32_t ms; }       Milliseconds_t;",
+      "typedef struct { uint32_t us; }       Microseconds_t;",
+      "",
+      "#endif /* BEC_EXAMPLES_UNIT_TYPES_H_ */"
+    ],
+    "project_types.h": [
+      "#ifndef BEC_EXAMPLES_PROJECT_TYPES_H_",
+      "#define BEC_EXAMPLES_PROJECT_TYPES_H_",
+      "",
+      "#include <stdbool.h>",
+      "#include <stddef.h>",
+      "#include <stdint.h>",
+      "",
+      "#include \"must_check.h\"",
+      "#include \"status_e.h\"",
+      "#include \"unit_types.h\"",
+      "",
+      "#define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))",
+      "",
+      "#endif /* BEC_EXAMPLES_PROJECT_TYPES_H_ */"
+    ],
+    "vendor_mcu_hal.h": [
+      "/* Stand-in for a vendor SDK header: only the symbols the README counter-example uses. */",
+      "#ifndef BEC_EXAMPLES_VENDOR_MCU_HAL_H_",
+      "#define BEC_EXAMPLES_VENDOR_MCU_HAL_H_",
+      "",
+      "#include <stdint.h>",
+      "",
+      "typedef struct {",
+      "    volatile uint32_t SR;",
+      "    volatile int32_t DR;",
+      "} VendorAdcRegs_t;",
+      "",
+      "extern VendorAdcRegs_t * const ADC1;",
+      "void PWM_SetDuty(int duty);",
+      "",
+      "#endif /* BEC_EXAMPLES_VENDOR_MCU_HAL_H_ */"
+    ],
+    "drvPwm.h": [
+      "/* Harness stand-in for the drvs/pwm/drvPwm.h header used by the skill examples. */",
+      "#ifndef BEC_EXAMPLES_DRV_PWM_H_",
+      "#define BEC_EXAMPLES_DRV_PWM_H_",
+      "",
+      "#include <stdbool.h>",
+      "#include <stddef.h>",
+      "#include <stdint.h>",
+      "#include \"project_types.h\"",
+      "",
+      "typedef struct {",
+      "    uint32_t hwInstanceId;",
+      "    FreqHz_t switchingFreq_hz;",
+      "    DutyPermille_t initialDuty_permille;",
+      "    bool isActiveLow;",
+      "} DrvPwmConfig_t;",
+      "",
+      "MUST_CHECK Status_e drvPwm_Init(const DrvPwmConfig_t * const configTable,",
+      "                                size_t numChannels);",
+      "MUST_CHECK Status_e drvPwm_SetDuty(size_t channel, DutyPermille_t duty_permille);",
+      "",
+      "#endif /* BEC_EXAMPLES_DRV_PWM_H_ */"
+    ],
+    "drvAdc.h": [
+      "/* Harness stand-in for the drvs/adc/drvAdc.h header used by the reference digests. */",
+      "#ifndef BEC_EXAMPLES_DRV_ADC_H_",
+      "#define BEC_EXAMPLES_DRV_ADC_H_",
+      "",
+      "#include <stddef.h>",
+      "#include <stdint.h>",
+      "#include \"project_types.h\"",
+      "",
+      "typedef struct {",
+      "    uint32_t hwInstanceId;",
+      "    uint8_t hwChannelIndex;",
+      "    Millivolts_t referenceVoltage_mv;",
+      "} DrvAdcConfig_t;",
+      "",
+      "MUST_CHECK Status_e drvAdc_Init(const DrvAdcConfig_t * const configTable,",
+      "                                size_t numChannels);",
+      "MUST_CHECK Status_e drvAdc_ChannelReadMv(size_t channel,",
+      "                                         Millivolts_t * const outVoltage_mv);",
+      "MUST_CHECK Status_e drvAdc_SampleReadMv(size_t channel,",
+      "                                        Millivolts_t * const outVoltage_mv);",
+      "",
+      "#endif /* BEC_EXAMPLES_DRV_ADC_H_ */"
+    ],
+    "fake_drvAdc.h": [
+      "/* Harness stand-in for drvs/adc/test/fake_drvAdc.h. */",
+      "#ifndef BEC_EXAMPLES_FAKE_DRV_ADC_H_",
+      "#define BEC_EXAMPLES_FAKE_DRV_ADC_H_",
+      "",
+      "#include <stddef.h>",
+      "#include <stdint.h>",
+      "#include \"drvAdc.h\"",
+      "",
+      "void fakeDrvAdc_Reset(void);",
+      "void fakeDrvAdc_SetChannelMv(size_t channel, Millivolts_t voltage_mv);",
+      "void fakeDrvAdc_InjectStatus(Status_e status);",
+      "uint32_t fakeDrvAdc_GetReadCallCount(size_t channel);",
+      "",
+      "#endif /* BEC_EXAMPLES_FAKE_DRV_ADC_H_ */"
+    ],
+    "drvMotor_types.h": [
+      "/* Harness stand-in for the DrvMotorConfig_t / runtime state types of the review example. */",
+      "#ifndef BEC_EXAMPLES_DRV_MOTOR_TYPES_H_",
+      "#define BEC_EXAMPLES_DRV_MOTOR_TYPES_H_",
+      "",
+      "#include <stdbool.h>",
+      "#include <stddef.h>",
+      "#include <stdint.h>",
+      "#include \"unit_types.h\"",
+      "",
+      "#define MOTOR_MAX_CHANNELS (2U)",
+      "",
+      "typedef struct {",
+      "    uint32_t hwTimerInstanceId;",
+      "    FreqHz_t pwmFreq_hz;",
+      "    Milliamps_t maxCurrent_ma;",
+      "} DrvMotorConfig_t;",
+      "",
+      "typedef struct {",
+      "    DutyPermille_t lastDuty_permille;",
+      "    bool isEnabled;",
+      "} MotorRuntimeState_t;",
+      "",
+      "#endif /* BEC_EXAMPLES_DRV_MOTOR_TYPES_H_ */"
+    ]
+  },
+  "files": {
+    "README.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "// Without the skill"
+        },
+        {
+          "index": 1,
+          "first_line": "// With the skill"
+        }
+      ]
+    },
+    "examples/review-motor-ctrl.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "#define MOTOR_ADC_TIMEOUT_CYCLES (10000U)",
+          "prelude": [
+            "#include <stdint.h>",
+            "#include \"status_e.h\"",
+            "",
+            "typedef struct {",
+            "    volatile uint32_t SR;",
+            "    volatile int32_t DR;",
+            "} ReviewVendorAdcRegs_t;",
+            "",
+            "extern ReviewVendorAdcRegs_t * const VENDOR_ADC1;",
+            "#define VENDOR_ADC_SR_EOC (1U << 1U)"
+          ]
+        },
+        {
+          "index": 1,
+          "first_line": "/* In motor_ctrl.h: remove #include \"vendor_mcu_hal.h\" and use a logical hardware ID */",
+          "prelude": [
+            "#include \"project_types.h\""
+          ]
+        },
+        {
+          "index": 2,
+          "first_line": "static MotorRuntimeState_t s_runtimeState[MOTOR_MAX_CHANNELS];",
+          "prelude": [
+            "#include \"project_types.h\"",
+            "#include \"drvMotor_types.h\""
+          ]
+        },
+        {
+          "index": 3,
+          "first_line": "typedef enum {",
+          "prelude": [
+            "#include \"project_types.h\"",
+            "#include \"drvMotor_types.h\""
+          ]
+        },
+        {
+          "index": 4,
+          "first_line": "static volatile uint32_t s_overcurrentFaultCount = 0U;",
+          "prelude": [
+            "#include <stdbool.h>",
+            "#include <stdint.h>",
+            "",
+            "typedef struct {",
+            "    volatile uint32_t SR;",
+            "} ReviewVendorTimRegs_t;",
+            "",
+            "extern ReviewVendorTimRegs_t * const VENDOR_TIM1;",
+            "#define VENDOR_TIM_SR_UIF (1U << 0U)",
+            "",
+            "extern uint32_t bspIrq_SaveAndDisable(void);",
+            "extern void bspIrq_Restore(uint32_t irqMask);"
+          ]
+        },
+        {
+          "index": 5,
+          "first_line": "if (current_ma.ma > s_configTable[channel].maxCurrent_ma.ma) {",
+          "prelude": [
+            "#include \"project_types.h\"",
+            "#include \"drvMotor_types.h\"",
+            "",
+            "MUST_CHECK Status_e drvMotor_EmergencyStop(size_t channel);",
+            "",
+            "static const DrvMotorConfig_t * s_configTable = NULL;",
+            "static Milliamps_t current_ma = { 0 };",
+            "static size_t channel = 0U;"
+          ],
+          "template": [
+            "static Status_e ReviewOvercurrentTrip(void) {",
+            "{code}",
+            "    return STATUS_OK;",
+            "}"
+          ]
+        },
+        {
+          "index": 6,
+          "first_line": "typedef struct { uint16_t permille; } DutyPermille_t;",
+          "prelude": [
+            "#include <stddef.h>",
+            "#include <stdint.h>",
+            "#include \"must_check.h\"",
+            "#include \"status_e.h\""
+          ]
+        },
+        {
+          "index": 7,
+          "first_line": "if (duty_permille.permille > 1000U) {",
+          "prelude": [
+            "#include \"project_types.h\"",
+            "",
+            "static DutyPermille_t duty_permille = { 0U };"
+          ],
+          "template": [
+            "static Status_e ReviewDutyClamp(void) {",
+            "{code}",
+            "    return STATUS_OK;",
+            "}"
+          ]
+        },
+        {
+          "index": 8,
+          "first_line": "#define MUST_CHECK __attribute__((warn_unused_result))",
+          "prelude": [
+            "#include \"drvMotor_types.h\"",
+            "#include \"status_e.h\""
+          ]
+        },
+        {
+          "index": 9,
+          "first_line": "//-------------------------------------------------------------------------------------------------//"
+        }
+      ]
+    },
+    "skills/embedded-c-best-practices/SKILL.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "/* drvs/pwm/drvPwm.h — 100% vendor-free public header */",
+          "prelude": [
+            "#include \"project_types.h\""
+          ]
+        },
+        {
+          "index": 1,
+          "first_line": "/* src/bsp/config/bspPwmCfg.h */",
+          "prelude": [
+            "#include \"drvPwm.h\""
+          ]
+        },
+        {
+          "index": 2,
+          "first_line": "/* src/bsp/config/bspPwmCfg.c — lands in .rodata (0 bytes of SRAM) */",
+          "prelude": [
+            "#include \"drvPwm.h\"",
+            "",
+            "typedef enum {",
+            "    BSP_PWM_CH_BUCK_HIGH = 0,",
+            "    BSP_PWM_CH_COOLING_FAN,",
+            "    BSP_PWM_CH_COUNT",
+            "} BspPwmChannel_e;"
+          ]
+        },
+        {
+          "index": 3,
+          "first_line": "/* Inside drvPwm.c — private state hidden from all callers */",
+          "prelude": [
+            "#include \"drvPwm.h\""
+          ]
+        },
+        {
+          "index": 4,
+          "first_line": "/* src/config/project_types.h */",
+          "prelude": [
+            "#include <stdint.h>"
+          ]
+        },
+        {
+          "index": 5,
+          "first_line": "#if defined(__GNUC__) || defined(__clang__)"
+        },
+        {
+          "index": 6,
+          "first_line": "Status_e drvPwm_SetDuty(size_t channel, DutyPermille_t duty_permille) {",
+          "prelude": [
+            "#include \"drvPwm.h\"",
+            "",
+            "static const DrvPwmConfig_t * s_configTable = NULL;",
+            "static size_t s_numChannels = 0U;",
+            "static bool s_isInitialized = false;"
+          ]
+        },
+        {
+          "index": 7,
+          "first_line": "/* BAD — hangs forever if peripheral clock or bus faults */",
+          "prelude": [
+            "#include <stdint.h>",
+            "#include \"status_e.h\"",
+            "",
+            "extern volatile uint32_t ADC_REG_SR;",
+            "#define ADC_SR_EOC_MASK (1U << 1U)"
+          ],
+          "compile_from": "/* GOOD"
+        },
+        {
+          "index": 8,
+          "first_line": "uint32_t bspTimer_FaultCountSnapshot(void) {",
+          "prelude": [
+            "#include <stdint.h>",
+            "",
+            "extern uint32_t bspIrq_SaveAndDisable(void);",
+            "extern void bspIrq_Restore(uint32_t irqState);",
+            "",
+            "static volatile uint32_t s_isrFaultCount = 0U;"
+          ]
+        },
+        {
+          "index": 9,
+          "first_line": "/* drvs/pwm/test/fake_drvPwm.c — linked in place of drvPwm.c during host `make test` */"
+        },
+        {
+          "index": 10,
+          "first_line": "//-------------------------------------------------------------------------------------------------//"
+        }
+      ]
+    },
+    "skills/embedded-c-best-practices/references/barr-c-coding-standard.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "/* BAD — relies on relative precedence of & and ==; unbraced body ([BARR-1.3.a], [BARR-1.4.a]) */",
+          "prelude": [
+            "#include <stdint.h>",
+            "#include \"status_e.h\"",
+            "",
+            "#define STATUS_READY_MASK (1U << 0U)"
+          ],
+          "template": [
+            "static Status_e ReviewOperatorPrecedence(uint32_t reg) {",
+            "{code}",
+            "    return STATUS_OK;",
+            "}"
+          ],
+          "compile_from": "/* GOOD"
+        },
+        {
+          "index": 1,
+          "first_line": "/* BAD — implementation-defined bit order and access width on MMIO ([BARR-NO-BITFIELDS]) */",
+          "prelude": [
+            "#include <stdint.h>"
+          ],
+          "compile_from": "/* GOOD"
+        },
+        {
+          "index": 2,
+          "first_line": "/* BAD — race condition: read-modify-write on s_pendingEvents is non-atomic ([BARR-ISR-ATOMIC]) */",
+          "prelude": [
+            "#include <stdbool.h>",
+            "#include <stdint.h>",
+            "",
+            "extern uint32_t bspIrq_SaveAndDisable(void);",
+            "extern void bspIrq_Restore(uint32_t irqMask);",
+            "",
+            "static volatile uint32_t s_pendingEvents = 0U;"
+          ],
+          "compile_from": "/* GOOD"
+        }
+      ]
+    },
+    "skills/embedded-c-best-practices/references/beningo-reusable-firmware.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "/* BAD — drvs/adc/drvAdc.h leaks vendor SDK types to every caller ([BENINGO-HDR-01]) */",
+          "prelude": [
+            "#include \"project_types.h\""
+          ],
+          "compile_from": "/* GOOD"
+        },
+        {
+          "index": 1,
+          "first_line": "/* drvs/adc/drvAdc.c — table validation and bounds guard */",
+          "prelude": [
+            "#include \"drvAdc.h\""
+          ]
+        }
+      ]
+    },
+    "skills/embedded-c-best-practices/references/grenning-embedded-tdd.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "/* drvs/adc/drvAdc.h — shared contract compiled into both target and host builds */",
+          "prelude": [
+            "#include \"drvAdc.h\""
+          ]
+        },
+        {
+          "index": 1,
+          "first_line": "/* drvs/adc/test/fake_drvAdc.h — test-only control interface (never included by production) */"
+        },
+        {
+          "index": 2,
+          "first_line": "/* drvs/adc/test/fake_drvAdc.c — linked instead of drvAdc.c in host `make test` */"
+        },
+        {
+          "index": 3,
+          "first_line": "/* BAD — domain thermistor math and over-temperature hysteresis buried inside drvAdc.c */",
+          "prelude": [
+            "#include \"project_types.h\"",
+            "",
+            "#define APP_THERMAL_TRIP_MV (3100)",
+            "#define APP_THERMAL_HYST_MV (100)",
+            "",
+            "static bool s_isTripped = false;"
+          ],
+          "compile_from": "/* GOOD"
+        },
+        {
+          "index": 4,
+          "first_line": "/* In header: incomplete struct type */",
+          "prelude": [
+            "#include <stdbool.h>",
+            "#include <stddef.h>",
+            "#include <stdint.h>",
+            "",
+            "#define DRV_UART_MAX_INSTANCES (4U)"
+          ]
+        }
+      ]
+    },
+    "skills/embedded-c-best-practices/references/misra-and-type-safety.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "/* BAD — uint16_t * uint16_t promotes to signed int on 32-bit targets or overflows 16-bit */",
+          "prelude": [
+            "#include <stdint.h>"
+          ],
+          "template": [
+            "static uint32_t ReviewWidenBeforeMultiply(void) {",
+            "{code}",
+            "    return scaled_uv;",
+            "}"
+          ],
+          "compile_from": "/* GOOD"
+        },
+        {
+          "index": 1,
+          "first_line": "/* src/config/project_types.h */",
+          "prelude": [
+            "#include <stdint.h>"
+          ]
+        },
+        {
+          "index": 2,
+          "first_line": "/* Compile-time rejection of swapped unit arguments ([MISRA-UNIT-WRAP]) */",
+          "prelude": [
+            "#include \"project_types.h\""
+          ]
+        },
+        {
+          "index": 3,
+          "first_line": "#define ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))",
+          "prelude": [
+            "#include <stddef.h>",
+            "#include <stdint.h>",
+            "",
+            "extern const uint32_t kBspPwmConfigTable[3];",
+            "",
+            "enum { BSP_PWM_CH_COUNT = 3 };"
+          ]
+        },
+        {
+          "index": 4,
+          "first_line": "#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)",
+          "prelude": [
+            "#include \"status_e.h\"",
+            "#include \"unit_types.h\""
+          ]
+        }
+      ]
+    },
+    "skills/embedded-c-best-practices/references/nasa-jpl-power-of-10.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "/* BAD — VLA allocates dynamic stack memory; recursion can overflow MCU RAM ([JPL-1]) */",
+          "prelude": [
+            "#include \"project_types.h\""
+          ],
+          "compile_from": "/* GOOD"
+        },
+        {
+          "index": 1,
+          "first_line": "/* BAD — unbounded hardware register polling loop ([JPL-2]) */",
+          "prelude": [
+            "#include \"project_types.h\"",
+            "",
+            "extern volatile uint32_t SPI1_SR;",
+            "extern volatile uint32_t SPI1_DR;",
+            "",
+            "#define SPI_SR_TXE_MASK (1U << 1U)"
+          ],
+          "compile_from": "/* GOOD"
+        }
+      ]
+    },
+    "skills/embedded-c-best-practices/references/rtos-and-isr-frameworks.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "#include <stddef.h>"
+        },
+        {
+          "index": 1,
+          "first_line": "#include <stdbool.h>"
+        },
+        {
+          "index": 2,
+          "first_line": "#include <stdbool.h>"
+        }
+      ]
+    },
+    "skills/embedded-c-port/SKILL.md": {
+      "blocks": [
+        {
+          "index": 0,
+          "first_line": "#include <stdbool.h>"
+        },
+        {
+          "index": 1,
+          "first_line": "#include <stdbool.h>"
+        }
+      ]
+    }
+  }
+}

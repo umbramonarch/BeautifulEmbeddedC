@@ -128,8 +128,12 @@ Status_e drvAdc_Init(const DrvAdcConfig_t * const configTable, size_t numChannel
 }
 ```
 
-## 4. Standardized `.h` and `.c` file layout
+## 4. Module naming and standardized `.h` / `.c` file layout
 
+- **`[BENINGO-NAME-01]` (Module-prefixed `ActionNoun` APIs and `_t`/`_e` types):** Prefix every
+  public function with its lowercase/camelCase module name followed by `_ActionNoun`
+  (`drvPwm_SetDuty`, `bspGpio_FaultLedSet`, `appThermal_RunStep`), suffix struct typedefs with
+  `_t` (`DrvPwmConfig_t`), and suffix enum typedefs with `_e` (`Status_e`, `BspPwmChannel_e`).
 - **`[BENINGO-LAYOUT-01]` (Doxygen file header and section banners):** Every `.h` and `.c` file
   across `app`, `bsp`, `config`, `drv`, and `libs` starts with a Doxygen `@file` and `@brief`
   banner and uses uniform `//---...---//` section dividers in a fixed order:

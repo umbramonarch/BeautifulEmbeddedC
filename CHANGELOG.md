@@ -6,6 +6,51 @@ All notable changes to this project are listed here. Versions follow
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-03
+
+### Added
+
+- **`embedded-c-port` skill** (`skills/embedded-c-port/SKILL.md`) for porting firmware,
+  peripheral drivers, and board support packages across microcontroller vendors, instruction-set
+  architectures (8/16-bit to 32-bit, AVR/MSP/PIC to Cortex-M or RISC-V), and vendor HAL/register
+  SDKs into deterministic, vendor-neutral, host-testable C11. Each port separates the physical
+  domain contract (millivolts, hertz, permille, milliseconds) from the target silicon mechanics
+  (clock trees, ADC resolution, bus ratios, interrupt-flag semantics). Backed by two graded
+  cross-MCU evaluation suites (`port-monolith-adc-temp-mcu-a-to-b` and
+  `port-layered-pwm-spi-drv-mcu-a-to-b`) totaling 24 binary graders.
+- **RTOS & ISR framework support**
+  (`skills/embedded-c-best-practices/references/rtos-and-isr-frameworks.md`): the sixth
+  authoritative digest, covering framework conventions to leave alone (`void vTask(void
+  *pvParameters)`, `for (;;)` task superloops, hardware vector handler names) and RTOS
+  concurrency rules (`[RTOS-STATIC-01]`, `[RTOS-ISR-01]`, `[RTOS-MUTEX-01]`, `[RTOS-WDT-01]`,
+  `[RTOS-SEAM-01]`). Pairs with two new graded RTOS evaluation suites
+  (`review-rtos-comms-task` and `rtos-watchdog-supervisor`) totaling 22 binary graders.
+- **Expanded `lints/check_arch.py` and new `lints/CMakeLists.txt`:** seven new static checks
+  (`[BARR-NO-BITFIELDS]`, `[BARR-8.3.b]`, `[BARR-ISR-ATOMIC]`, `[RTOS-STATIC-01]`,
+  `[RTOS-ISR-01]`, `[RTOS-WDT-01]`, `[RTOS-SEAM-01]`) plus an extended `[JPL-1]` that now bans
+  `alloca` and direct recursion alongside `goto`, `setjmp`, and `longjmp`; a drop-in
+  dual-target `lints/CMakeLists.txt` with per-layer include isolation and CTest host unit
+  tests; and `clang-format`-clean generated templates in `lints/scaffold.py`.
+- **CI and self-verification suite** (`scripts/`, `lints/check/`, `tests/`,
+  `.github/workflows/check.yml`, `CONTRIBUTING.md`):
+  - `scripts/check-skill.py` validates plugin manifests, changelog links, every relative link,
+    skill frontmatter, rule-ID provenance, and eval case structure, backed by 59 unit tests in
+    `tests/test_check_skill.py`.
+  - `scripts/check-examples.py` with `scripts/examples.json` compiles every C11 code snippet
+    across the skills, reference digests, `README.md`, and `examples/` under the strict
+    `-Werror` flag set.
+  - `lints/check/` deliberate-violation fixtures with `scripts/check-lints.py` prove every
+    `check_arch.py` rule fires on its exact line and verify the full `scaffold.py` round-trip.
+
+### Changed
+
+- Four pre-existing evaluation suites (`ring-buffer-lib`, `app-thermal-fsm-and-bsp`,
+  `refactor-motor-ctrl`, `review-motor-ctrl`) now run alongside the four new suites, for eight
+  graded suites and 88 binary graders in total.
+- The plugin description, marketplace description, and `keywords` now advertise all three
+  skills, all six reference digests, the CMake and Make build configs, and multi-layer
+  scaffolding.
+
 ## [1.0.0] - 2026-10-25
 
 ### Added
@@ -38,5 +83,6 @@ All notable changes to this project are listed here. Versions follow
   (`ring-buffer-lib`, `app-thermal-fsm-and-bsp`, `refactor-motor-ctrl`, and
   `review-motor-ctrl`).
 
-[Unreleased]: https://github.com/umbramonarch/BeautifulEmbeddedC/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/umbramonarch/BeautifulEmbeddedC/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/umbramonarch/BeautifulEmbeddedC/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/umbramonarch/BeautifulEmbeddedC/releases/tag/v1.0.0

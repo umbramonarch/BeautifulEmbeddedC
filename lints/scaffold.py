@@ -151,7 +151,7 @@ def scaffold_init_project(root: pathlib.Path, lints_dir: pathlib.Path) -> None:
 
     write_if_missing(root / "src/config/project_types.h", PROJECT_TYPES_H)
 
-    for cfg_name in (".clang-format", ".clang-tidy", ".clangd", "Makefile"):
+    for cfg_name in (".clang-format", ".clang-tidy", ".clangd", "Makefile", "CMakeLists.txt"):
         src_file = lints_dir / cfg_name
         dst_file = root / cfg_name
         if src_file.is_file() and not dst_file.exists():
@@ -191,7 +191,7 @@ def scaffold_config(root: pathlib.Path, name: str) -> None:
 //             Exported Macros
 {BANNER}
 #define {upper}_DEFAULT_TIMEOUT_MS (100U)
-#define {upper}_MAX_LIMIT_MV       (3300)
+#define {upper}_MAX_LIMIT_MV (3300)
 
 {BANNER}
 //             Exported Types
@@ -256,7 +256,7 @@ typedef struct {{
  * @param config Pointer to const configuration in .rodata.
  * @return STATUS_OK on success, STATUS_ERR_NULL_PTR or STATUS_ERR_INVALID_PARAM on error.
  */
-MUST_CHECK Status_e app{pascal}_Init(const App{pascal}Config_t * const config);
+MUST_CHECK Status_e app{pascal}_Init(const App{pascal}Config_t *const config);
 
 /**
  * @brief Execute one deterministic step of the {pascal} state machine.
@@ -264,8 +264,7 @@ MUST_CHECK Status_e app{pascal}_Init(const App{pascal}Config_t * const config);
  * @param outDuty_permille Output commanded duty cycle (0..1000 permille).
  * @return STATUS_OK on success, error status otherwise.
  */
-MUST_CHECK Status_e app{pascal}_Step(Millivolts_t input_mv,
-                                     DutyPermille_t * const outDuty_permille);
+MUST_CHECK Status_e app{pascal}_Step(Millivolts_t input_mv, DutyPermille_t *const outDuty_permille);
 
 #endif /* APP_{upper}_H_ */
 """
@@ -304,7 +303,7 @@ static bool s_isInitialized = false;
 {BANNER}
 //             Implementation
 {BANNER}
-Status_e app{pascal}_Init(const App{pascal}Config_t * const config) {{
+Status_e app{pascal}_Init(const App{pascal}Config_t *const config) {{
     if (config == NULL) {{
         return STATUS_ERR_NULL_PTR;
     }}
@@ -316,8 +315,7 @@ Status_e app{pascal}_Init(const App{pascal}Config_t * const config) {{
     return STATUS_OK;
 }}
 
-Status_e app{pascal}_Step(Millivolts_t input_mv,
-                          DutyPermille_t * const outDuty_permille) {{
+Status_e app{pascal}_Step(Millivolts_t input_mv, DutyPermille_t *const outDuty_permille) {{
     if (!s_isInitialized || (s_config == NULL)) {{
         return STATUS_ERR_UNINITIALIZED;
     }}
@@ -337,22 +335,22 @@ Status_e app{pascal}_Step(Millivolts_t input_mv,
 #include "app{pascal}.h"
 
 static const App{pascal}Config_t kTestConfig = {{
-    .threshold_mv        = {{ .mv = 2500 }},
-    .activeDuty_permille = {{ .permille = 800U }}
+    .threshold_mv = {{.mv = 2500}},
+    .activeDuty_permille = {{.permille = 800U}},
 }};
 
 int main(void) {{
-    DutyPermille_t duty = {{ .permille = 0U }};
+    DutyPermille_t duty = {{.permille = 0U}};
 
     assert(app{pascal}_Init(NULL) == STATUS_ERR_NULL_PTR);
-    assert(app{pascal}_Step((Millivolts_t){{ .mv = 1000 }}, &duty) == STATUS_ERR_UNINITIALIZED);
+    assert(app{pascal}_Step((Millivolts_t){{.mv = 1000}}, &duty) == STATUS_ERR_UNINITIALIZED);
     assert(app{pascal}_Init(&kTestConfig) == STATUS_OK);
-    assert(app{pascal}_Step((Millivolts_t){{ .mv = 1000 }}, NULL) == STATUS_ERR_NULL_PTR);
+    assert(app{pascal}_Step((Millivolts_t){{.mv = 1000}}, NULL) == STATUS_ERR_NULL_PTR);
 
-    assert(app{pascal}_Step((Millivolts_t){{ .mv = 2000 }}, &duty) == STATUS_OK);
+    assert(app{pascal}_Step((Millivolts_t){{.mv = 2000}}, &duty) == STATUS_OK);
     assert(duty.permille == 0U);
 
-    assert(app{pascal}_Step((Millivolts_t){{ .mv = 2600 }}, &duty) == STATUS_OK);
+    assert(app{pascal}_Step((Millivolts_t){{.mv = 2600}}, &duty) == STATUS_OK);
     assert(duty.permille == 800U);
     return 0;
 }}
@@ -411,8 +409,7 @@ typedef struct {{
  * @param numChannels Number of entries in configTable.
  * @return STATUS_OK on success, error status otherwise.
  */
-MUST_CHECK Status_e drv{pascal}_Init(const Drv{pascal}Config_t * const configTable,
-                                     size_t numChannels);
+MUST_CHECK Status_e drv{pascal}_Init(const Drv{pascal}Config_t *const configTable, size_t numChannels);
 
 /**
  * @brief Set output duty cycle in permille (0..1000) for a {pascal} channel.
@@ -459,8 +456,7 @@ static size_t s_numChannels = 0U;
 {BANNER}
 //             Implementation
 {BANNER}
-Status_e drv{pascal}_Init(const Drv{pascal}Config_t * const configTable,
-                          size_t numChannels) {{
+Status_e drv{pascal}_Init(const Drv{pascal}Config_t *const configTable, size_t numChannels) {{
     if ((configTable == NULL) || (numChannels == 0U)) {{
         return STATUS_ERR_NULL_PTR;
     }}
@@ -530,7 +526,7 @@ DutyPermille_t fakeDrv{pascal}_GetLastDuty(size_t channel) {{
     if (channel < FAKE_DRV_{upper}_MAX_CHANNELS) {{
         return s_lastDuty[channel];
     }}
-    DutyPermille_t const zero = {{ .permille = 0U }};
+    DutyPermille_t const zero = {{.permille = 0U}};
     return zero;
 }}
 
@@ -538,13 +534,11 @@ uint32_t fakeDrv{pascal}_GetSetDutyCallCount(void) {{
     return s_setDutyCalls;
 }}
 
-Status_e drv{pascal}_Init(const Drv{pascal}Config_t * const configTable,
-                          size_t numChannels) {{
+Status_e drv{pascal}_Init(const Drv{pascal}Config_t *const configTable, size_t numChannels) {{
     if (s_injectedStatus != STATUS_OK) {{
         return s_injectedStatus;
     }}
-    if ((configTable == NULL) || (numChannels == 0U) ||
-        (numChannels > FAKE_DRV_{upper}_MAX_CHANNELS)) {{
+    if ((configTable == NULL) || (numChannels == 0U) || (numChannels > FAKE_DRV_{upper}_MAX_CHANNELS)) {{
         return STATUS_ERR_NULL_PTR;
     }}
     for (size_t i = 0U; i < numChannels; ++i) {{
@@ -581,26 +575,24 @@ Status_e drv{pascal}_SetDuty(size_t channel, DutyPermille_t duty_permille) {{
 #include "fake_drv{pascal}.h"
 
 static const Drv{pascal}Config_t kTestTable[1] = {{
-    [0] = {{
-        .hwInstanceId         = 0U,
-        .frequency_hz         = {{ .hz = 25000U }},
-        .initialDuty_permille = {{ .permille = 100U }}
-    }}
+    [0] =
+        {{
+            .hwInstanceId = 0U,
+            .frequency_hz = {{.hz = 25000U}},
+            .initialDuty_permille = {{.permille = 100U}},
+        }},
 }};
 
 int main(void) {{
     fakeDrv{pascal}_Reset();
     assert(drv{pascal}_Init(NULL, 0U) == STATUS_ERR_NULL_PTR);
-    assert(drv{pascal}_SetDuty(0U, (DutyPermille_t){{ .permille = 500U }}) ==
-           STATUS_ERR_UNINITIALIZED);
+    assert(drv{pascal}_SetDuty(0U, (DutyPermille_t){{.permille = 500U}}) == STATUS_ERR_UNINITIALIZED);
 
     assert(drv{pascal}_Init(kTestTable, ARRAY_LEN(kTestTable)) == STATUS_OK);
-    assert(drv{pascal}_SetDuty(5U, (DutyPermille_t){{ .permille = 500U }}) ==
-           STATUS_ERR_INVALID_CHANNEL);
-    assert(drv{pascal}_SetDuty(0U, (DutyPermille_t){{ .permille = 1001U }}) ==
-           STATUS_ERR_INVALID_PARAM);
+    assert(drv{pascal}_SetDuty(5U, (DutyPermille_t){{.permille = 500U}}) == STATUS_ERR_INVALID_CHANNEL);
+    assert(drv{pascal}_SetDuty(0U, (DutyPermille_t){{.permille = 1001U}}) == STATUS_ERR_INVALID_PARAM);
 
-    assert(drv{pascal}_SetDuty(0U, (DutyPermille_t){{ .permille = 650U }}) == STATUS_OK);
+    assert(drv{pascal}_SetDuty(0U, (DutyPermille_t){{.permille = 650U}}) == STATUS_OK);
     assert(fakeDrv{pascal}_GetLastDuty(0U).permille == 650U);
     assert(fakeDrv{pascal}_GetSetDutyCallCount() == 1U);
     return 0;
@@ -643,7 +635,7 @@ def scaffold_bsp(root: pathlib.Path, name: str) -> None:
 {BANNER}
 typedef enum {{
     BSP_{upper}_CH_PRIMARY = 0,
-    BSP_{upper}_CH_COUNT
+    BSP_{upper}_CH_COUNT,
 }} Bsp{pascal}Channel_e;
 
 {BANNER}
@@ -682,11 +674,12 @@ extern const Drv{pascal}Config_t kBsp{pascal}ConfigTable[BSP_{upper}_CH_COUNT];
 //             Private Variables
 {BANNER}
 const Drv{pascal}Config_t kBsp{pascal}ConfigTable[BSP_{upper}_CH_COUNT] = {{
-    [BSP_{upper}_CH_PRIMARY] = {{
-        .hwInstanceId         = 0U,
-        .frequency_hz         = {{ .hz = 25000U }},
-        .initialDuty_permille = {{ .permille = 0U }}
-    }}
+    [BSP_{upper}_CH_PRIMARY] =
+        {{
+            .hwInstanceId = 0U,
+            .frequency_hz = {{.hz = 25000U}},
+            .initialDuty_permille = {{.permille = 0U}},
+        }},
 }};
 
 _Static_assert(ARRAY_LEN(kBsp{pascal}ConfigTable) == (size_t)BSP_{upper}_CH_COUNT,
@@ -850,9 +843,7 @@ typedef struct {{
  * @param capacity Size of storageBuf in bytes (> 0).
  * @return STATUS_OK on success, STATUS_ERR_NULL_PTR or STATUS_ERR_INVALID_PARAM on error.
  */
-MUST_CHECK Status_e {camel}_Init({pascal}_t * const inst,
-                                 uint8_t * const storageBuf,
-                                 size_t capacity);
+MUST_CHECK Status_e {camel}_Init({pascal}_t *const inst, uint8_t *const storageBuf, size_t capacity);
 
 /**
  * @brief Push one byte into the {pascal} instance.
@@ -860,7 +851,7 @@ MUST_CHECK Status_e {camel}_Init({pascal}_t * const inst,
  * @param byte Value to push.
  * @return STATUS_OK on success, STATUS_ERR_BUFFER_FULL or STATUS_ERR_NULL_PTR on error.
  */
-MUST_CHECK Status_e {camel}_Push({pascal}_t * const inst, uint8_t byte);
+MUST_CHECK Status_e {camel}_Push({pascal}_t *const inst, uint8_t byte);
 
 /**
  * @brief Pop one byte from the {pascal} instance.
@@ -868,7 +859,7 @@ MUST_CHECK Status_e {camel}_Push({pascal}_t * const inst, uint8_t byte);
  * @param outByte Pointer to receive popped byte.
  * @return STATUS_OK on success, STATUS_ERR_BUFFER_EMPTY or STATUS_ERR_NULL_PTR on error.
  */
-MUST_CHECK Status_e {camel}_Pop({pascal}_t * const inst, uint8_t * const outByte);
+MUST_CHECK Status_e {camel}_Pop({pascal}_t *const inst, uint8_t *const outByte);
 
 #endif /* LIB_{upper}_H_ */
 """
@@ -904,9 +895,7 @@ MUST_CHECK Status_e {camel}_Pop({pascal}_t * const inst, uint8_t * const outByte
 {BANNER}
 //             Implementation
 {BANNER}
-Status_e {camel}_Init({pascal}_t * const inst,
-                      uint8_t * const storageBuf,
-                      size_t capacity) {{
+Status_e {camel}_Init({pascal}_t *const inst, uint8_t *const storageBuf, size_t capacity) {{
     if ((inst == NULL) || (storageBuf == NULL)) {{
         return STATUS_ERR_NULL_PTR;
     }}
@@ -921,7 +910,7 @@ Status_e {camel}_Init({pascal}_t * const inst,
     return STATUS_OK;
 }}
 
-Status_e {camel}_Push({pascal}_t * const inst, uint8_t byte) {{
+Status_e {camel}_Push({pascal}_t *const inst, uint8_t byte) {{
     if ((inst == NULL) || (inst->storage == NULL)) {{
         return STATUS_ERR_NULL_PTR;
     }}
@@ -934,7 +923,7 @@ Status_e {camel}_Push({pascal}_t * const inst, uint8_t byte) {{
     return STATUS_OK;
 }}
 
-Status_e {camel}_Pop({pascal}_t * const inst, uint8_t * const outByte) {{
+Status_e {camel}_Pop({pascal}_t *const inst, uint8_t *const outByte) {{
     if ((inst == NULL) || (inst->storage == NULL) || (outByte == NULL)) {{
         return STATUS_ERR_NULL_PTR;
     }}
@@ -952,7 +941,7 @@ Status_e {camel}_Pop({pascal}_t * const inst, uint8_t * const outByte) {{
 #include "{camel}.h"
 
 int main(void) {{
-    uint8_t backing[4] = {{ 0U }};
+    uint8_t backing[4] = {{0U}};
     {pascal}_t buf;
     uint8_t out = 0U;
 
