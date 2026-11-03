@@ -122,12 +122,20 @@ _Static_assert(ARRAY_LEN(kBspPwmConfigTable) == (size_t)BSP_PWM_CH_COUNT,
                "kBspPwmConfigTable length must match BspPwmChannel_e count");
 ```
 
-## 4. Mandatory Status Checking with `MUST_CHECK` (`[MISRA-17.7]`)
+## 4. Defensive Control Flow, Heap Ban & Mandatory Status Checking (`[MISRA-16.4]`, `[MISRA-17.7]`, `[MISRA-21.3]`)
 
-MISRA Rule 17.7 and NASA JPL Rule 7 require that the value returned by a non-void function
-shall always be used. Annotate every fallible prototype with `MUST_CHECK`
-(`__attribute__((warn_unused_result))`) so `-Wall -Werror` turns any ignored status return into
-a hard build failure:
+- **`[MISRA-16.4]` (Every `switch` statement requires a `default:` clause):** Even when
+  switching over an `enum`, always provide a defensive `default:` clause (returning
+  `STATUS_ERR_INVALID_PARAM` or transitioning to a safe fault state) so bit-flips or out-of-range
+  values are handled deterministically (paired with `[BARR-8.3.b]`).
+- **`[MISRA-21.3]` (No `<stdlib.h>` dynamic memory allocation):** The memory allocation and
+  deallocation functions of `<stdlib.h>` (`malloc`, `calloc`, `realloc`, `free`) and RTOS heap
+  wrappers (`pvPortMalloc`) shall not be used in any firmware layer (paired with `[JPL-3]` and
+  `[RTOS-STATIC-01]`).
+- **`[MISRA-17.7]` (Mandatory status checking with `MUST_CHECK`):** MISRA Rule 17.7 and NASA JPL
+  Rule 7 require that the value returned by a non-void function shall always be used. Annotate
+  every fallible prototype with `MUST_CHECK` (`__attribute__((warn_unused_result))`) so
+  `-Wall -Werror` turns any ignored status return into a hard build failure:
 
 ```c
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)

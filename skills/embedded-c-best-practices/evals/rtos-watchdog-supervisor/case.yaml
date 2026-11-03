@@ -1,0 +1,14 @@
+schema_version: "1.1"
+name: rtos-watchdog-supervisor
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  An OS-agnostic RTOS rendezvous watchdog supervisor in src/app/appWatchdog.h and
+  src/app/appWatchdog.c plus host unit tests in tests/test_appWatchdog.c. The implementation
+  uses static RTOS task allocation via bspRtos_TaskCreateStatic ([RTOS-STATIC-01]), a const
+  task configuration table in .rodata paired with _Static_assert ([BENINGO-CFG-CONST]),
+  save/restore critical sections around the shared heartbeat bitmask ([BARR-ISR-ATOMIC]), an
+  OS-agnostic appWatchdog_SupervisorStep() core ([RTOS-SEAM-01]) that only kicks the hardware
+  watchdog when all monitored tasks check in and withholds the kick + latches the first
+  missing task ID on timeout ([RTOS-WDT-01]), a compliant vWatchdogSupervisorTask(void
+  *pvParameters) wrapper using bounded bspRtos_DelayMs, and passing host gcc unit tests.

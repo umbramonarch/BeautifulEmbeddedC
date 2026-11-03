@@ -1,0 +1,52 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Skills, manifests, and evals
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check skill frontmatter, links, rule IDs, and eval cases
+        run: python3 scripts/check-skill.py
+      - name: Run the validator unit tests
+        run: python3 -m unittest discover -s tests -v
+
+  lints:
+    name: Lint configs and architecture gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install clang-format and clang-tidy
+        run: sudo apt-get update && sudo apt-get install -y clang-format clang-tidy
+      - name: Check the lint suite and architecture gate
+        run: python3 scripts/check-lints.py
+
+  examples:
+    name: Examples compile and pass the lint suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check every C example
+        run: python3 scripts/check-examples.py
